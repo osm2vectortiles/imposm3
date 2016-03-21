@@ -186,6 +186,16 @@ func Update(oscFile string, geometryLimiter *limit.Limiter, expireor expire.Expi
 	for {
 		select {
 		case elem, ok := <-elems:
+			if config.BaseOptions.NoDelete && elem.Del && !elem.Add {
+				continue
+			}
+			if config.BaseOptions.NoCreate && !elem.Del && elem.Add {
+				continue
+			}
+			if config.BaseOptions.NoModify && elem.Del && elem.Add {
+				continue
+			}
+
 			if !ok {
 				elems = nil
 				break

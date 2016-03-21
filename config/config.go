@@ -48,6 +48,9 @@ type _BaseOptions struct {
 	Httpprofile        string
 	Quiet              bool
 	Schemas            Schemas
+	NoDelete           bool
+	NoModify           bool
+	NoCreate           bool
 }
 
 func (o *_BaseOptions) updateFromConfig() error {
@@ -156,6 +159,10 @@ func addBaseFlags(flags *flag.FlagSet) {
 	flags.StringVar(&BaseOptions.Schemas.Import, "dbschema-import", defaultSchemaImport, "db schema for imports")
 	flags.StringVar(&BaseOptions.Schemas.Production, "dbschema-production", defaultSchemaProduction, "db schema for production")
 	flags.StringVar(&BaseOptions.Schemas.Backup, "dbschema-backup", defaultSchemaBackup, "db schema for backups")
+
+	flags.BoolVar(&BaseOptions.NoDelete, "no-delete", false, "don't process osm delete changes")
+	flags.BoolVar(&BaseOptions.NoModify, "no-modify", false, "don't process osm modify changes")
+	flags.BoolVar(&BaseOptions.NoCreate, "no-create", false, "don't process osm create changes")
 }
 
 func UsageImport() {
