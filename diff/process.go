@@ -183,16 +183,23 @@ func Update(oscFile string, geometryLimiter *limit.Limiter, expireor expire.Expi
 
 	g := geos.NewGeos()
 
+	fmt.Printf("Delete options %s", config.BaseOptions.NoDelete)
+	fmt.Printf("Modify options %s", config.BaseOptions.NoModify)
+	fmt.Printf("Create options %s", config.BaseOptions.NoCreate)
+
 	for {
 		select {
 		case elem, ok := <-elems:
 			if config.BaseOptions.NoDelete && elem.Del && !elem.Add {
+				fmt.Printf("Avoid delete")
 				continue
 			}
 			if config.BaseOptions.NoCreate && !elem.Del && elem.Add {
+				fmt.Printf("Avoid create")
 				continue
 			}
-			if config.BaseOptions.NoModify && elem.Del && elem.Add {
+			if config.BaseOptions.NoModify && elem.Mod {
+				fmt.Printf("Avoid modify")
 				continue
 			}
 
