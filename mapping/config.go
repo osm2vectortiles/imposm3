@@ -263,6 +263,21 @@ func (m *Mapping) extraTags(tableType TableType, tags map[Key]bool) {
 	}
 }
 
+func makeElementFiltersFunction(filterKey, filterValue string) func(tags *element.Tags) bool {
+	return func(tags *element.Tags) bool {
+
+		if v, ok := (*tags)[filterKey]; ok {
+			if filterValue == "__any__" || v == filterValue {
+				return false
+			}
+		} else if filterValue == "__nil__" {
+			return false
+		}
+
+		return true
+	}
+}
+
 func (m *Mapping) ElementFilters() map[string][]ElementFilter {
 	result := make(map[string][]ElementFilter)
 	for name, t := range m.Tables {
@@ -271,15 +286,7 @@ func (m *Mapping) ElementFilters() map[string][]ElementFilter {
 		}
 		if t.Filters.ExcludeTags != nil {
 			for _, filterKeyVal := range *t.Filters.ExcludeTags {
-				f := func(tags *element.Tags) bool {
-					if v, ok := (*tags)[filterKeyVal[0]]; ok {
-						if filterKeyVal[1] == "__any__" || v == filterKeyVal[1] {
-							return false
-						}
-					}
-					return true
-				}
-				result[name] = append(result[name], f)
+				result[name] = append(result[name], makeElementFiltersFunction(filterKeyVal[0], filterKeyVal[1]))
 			}
 		}
 	}
