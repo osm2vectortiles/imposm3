@@ -81,7 +81,7 @@ func dropTableIfExists(tx *sql.Tx, schema, table string) error {
 	if !exists {
 		return nil
 	}
-	sqlStmt := fmt.Sprintf("DROP TABLE %s.%s CASCADE);", schema, table)
+	sqlStmt := fmt.Sprintf("DROP TABLE %s.%s CASCADE;", schema, table)
 	row := tx.QueryRow(sqlStmt)
 	var void interface{}
 	err = row.Scan(&void)
