@@ -135,7 +135,7 @@ func (d *Deleter) deleteRelation(id int64, deleteRefs bool, deleteMembers bool) 
 				continue
 			}
 			proj.NodesToMerc(m.Way.Nodes)
-			expire.ExpireNodes(d.expireor, m.Way.Nodes)
+			d.expireor.ExpireLinestring(m.Way.Nodes)
 		}
 	}
 	return nil
@@ -179,7 +179,7 @@ func (d *Deleter) deleteWay(id int64, deleteRefs bool) error {
 		if err != nil {
 			return err
 		}
-		expire.ExpireNodes(d.expireor, elem.Nodes)
+		d.expireor.ExpireLinestring(elem.Nodes)
 	}
 	return nil
 }
@@ -205,7 +205,7 @@ func (d *Deleter) deleteNode(id int64) error {
 	}
 
 	if deleted && d.expireor != nil {
-		d.expireor.Expire(elem.Long, elem.Lat)
+		d.expireor.ExpirePoint(elem.Long, elem.Lat)
 	}
 	return nil
 }

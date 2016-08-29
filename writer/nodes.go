@@ -51,7 +51,7 @@ func (nw *NodeWriter) loop() {
 		if matches := nw.pointMatcher.MatchNode(n); len(matches) > 0 {
 			nw.NodeToSrid(n)
 			if nw.expireor != nil {
-				nw.expireor.Expire(n.Long, n.Lat)
+				nw.expireor.ExpirePoint(n.Long, n.Lat)
 			}
 			point, err := geomp.Point(geos, *n)
 			if err != nil {

@@ -7,7 +7,6 @@ import (
 	"github.com/omniscale/imposm3/cache"
 	"github.com/omniscale/imposm3/database"
 	"github.com/omniscale/imposm3/element"
-	"github.com/omniscale/imposm3/expire"
 	geomp "github.com/omniscale/imposm3/geom"
 	geosp "github.com/omniscale/imposm3/geom/geos"
 	"github.com/omniscale/imposm3/mapping"
@@ -125,7 +124,7 @@ NextRel:
 		if inserted && rw.expireor != nil {
 			for _, m := range allMembers {
 				if m.Way != nil {
-					expire.ExpireNodes(rw.expireor, m.Way.Nodes)
+					rw.expireor.ExpireLinestring(m.Way.Nodes)
 				}
 			}
 		}
