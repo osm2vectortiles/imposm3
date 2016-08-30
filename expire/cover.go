@@ -5,18 +5,31 @@ import (
 	"sort"
 )
 
-//TODO: Do we really need our own point structure?
-// We perhaps can reuse the OSM Node (which is however much heavier)
-type Point struct {
+// WGS84 datum, and with longitude and latitude units of decimal degrees
+// http://epsg.io/4326
+type WGS84Datum struct {
 	lon float64
 	lat float64
 }
 
+type Point WGS84Datum
+type LineString []Point
+
+// For polygon the linestrings must be linear rings.
+// For Polygons with multiple rings, the first must be the exterior ring and
+// any others must be interior rings or holes.
+type Polygon []LineString
+
 // Calculate all tiles covered by the linear ring of the polygon
 // And the tiles enclosed by it
-func CoverPolygon(closedLinestring []Point, zoom int) TileHash {
+// TODO: Only supports calculating the outer ring
+func CoverPolygon(poly Polygon, zoom int) TileHash {
+	if len(poly) == 0 {
+		return TileHash{}
+	}
+	outerRing := poly[0]
 	intersections := []TileFraction{}
-	tiles, ring := CoverLinestring(closedLinestring, zoom)
+	tiles, ring := CoverLinestring(outerRing, zoom)
 
 	j := 0
 	k := len(ring) - 1
@@ -48,15 +61,15 @@ func CoverPolygon(closedLinestring []Point, zoom int) TileHash {
 }
 
 // Calculate all tiles covered by linestring
-func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
+func CoverLinestring(points LineString, zoom int) (TileHash, []TileFraction) {
 	tiles := make(TileHash)
 	ring := []TileFraction{}
 	prev := TileFraction{}
 
 	var x, y float64
 	for i := 0; i < len(points)-1; i++ {
-		start := pointToTileFraction(points[i].lon, points[i].lat, zoom)
-		stop := pointToTileFraction(points[i+1].lon, points[i+1].lat, zoom)
+		start := ToTileFraction(points[i], zoom)
+		stop := ToTileFraction(points[i+1], zoom)
 
 		//Calculate distance between points
 		d := TileFraction{stop.X - start.X, stop.Y - start.Y}
@@ -124,19 +137,18 @@ func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
 }
 
 // Calculate all tiles covered by the point
-func CoverPoint(lon, lat float64, zoom int) Tile {
-	tf := pointToTileFraction(lon, lat, zoom)
+func CoverPoint(p Point, zoom int) Tile {
+	tf := ToTileFraction(p, zoom)
 	return NewTile(tf.X, tf.Y, zoom)
 }
 
-func pointToTileFraction(lon, lat float64, zoomLevel int) TileFraction {
-	//TODO: Add bounds check for lon/lat
+func ToTileFraction(p Point, zoomLevel int) TileFraction {
 	d2r := math.Pi / 180
 	z2 := math.Pow(2, float64(zoomLevel))
-	sin := math.Sin(lat * d2r)
+	sin := math.Sin(p.lat * d2r)
 
 	return TileFraction{
-		X: z2 * (lon/360 + 0.5),
+		X: z2 * (p.lon/360 + 0.5),
 		Y: z2 * (0.5 - 0.25*math.Log((1+sin)/(1-sin))/math.Pi),
 	}
 }

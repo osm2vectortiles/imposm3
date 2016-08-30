@@ -57,10 +57,9 @@ type TileExpireor struct {
 }
 
 func (te *TileExpireor) ExpireLinestring(nodes []element.Node) {
-	linestring := []Point{}
-	//TODO: If we would not have Point we could save this conversion
-	for _, node := range nodes {
-		linestring = append(linestring, ToPoint(node))
+	linestring := LineString{}
+	for _, n := range nodes {
+		linestring = append(linestring, reproject(n.Long, n.Lat))
 	}
 
 	tiles, _ := CoverLinestring(linestring, te.maxZoom)
@@ -69,34 +68,31 @@ func (te *TileExpireor) ExpireLinestring(nodes []element.Node) {
 	te.tileAccess.Unlock()
 }
 
-func Reproject(lon, lat float64) (float64, float64) {
-	return lon * 180 / 20037508.34, math.Atan(math.Exp(lat*math.Pi/20037508.34))*360/math.Pi - 90
-}
-
-// TODO: Adapt algorithms to work directly with meters instead
-// of reprojecting it. Still don't get the projections quite.
-func ToPoint(n element.Node) Point {
-	lon, lat := Reproject(n.Long, n.Lat)
-	return Point{lon, lat}
+// Reproject from spherical mercator https://epsg.io/3857 to  http://epsg.io/4326
+func reproject(lon, lat float64) Point {
+	return Point{
+		lon: lon * 180 / 20037508.34,
+		lat: math.Atan(math.Exp(lat*math.Pi/20037508.34))*360/math.Pi - 90,
+	}
 }
 
 func (te *TileExpireor) ExpirePolygon(nodes []element.Node) {
-	linearRing := []Point{}
-	//TODO: If we would not have Point we could save this conversion
-	for _, node := range nodes {
-		linearRing = append(linearRing, ToPoint(node))
+	outerRing := LineString{}
+	for _, n := range nodes {
+		outerRing = append(outerRing, reproject(n.Long, n.Lat))
 	}
+	poly := Polygon{outerRing}
+	tiles := CoverPolygon(poly, te.maxZoom)
 
-	tiles := CoverPolygon(linearRing, te.maxZoom)
 	te.tileAccess.Lock()
 	te.tiles.MergeTiles(tiles)
 	te.tileAccess.Unlock()
 }
 
 func (te *TileExpireor) ExpirePoint(lon, lat float64) {
-	lon, lat = Reproject(lon, lat)
-	tile := CoverPoint(lon, lat, te.maxZoom)
-	fmt.Println(lon, lat)
+	point := reproject(lon, lat)
+	tile := CoverPoint(point, te.maxZoom)
+
 	te.tileAccess.Lock()
 	te.tiles.AddTile(tile)
 	te.tileAccess.Unlock()

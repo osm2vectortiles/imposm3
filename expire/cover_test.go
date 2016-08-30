@@ -6,7 +6,7 @@ import (
 )
 
 // https://github.com/mapbox/tile-cover/blob/master/test/fixtures/building.geojson
-var Building = []Point{
+var Building = Polygon{LineString{
 	Point{-77.15269088745116, 38.87153962460514},
 	Point{-77.1521383523941, 38.871322446566325},
 	Point{-77.15196132659912, 38.87159391901113},
@@ -20,11 +20,10 @@ var Building = []Point{
 	Point{-77.15270698070526, 38.87236656567917},
 	Point{-77.1523904800415, 38.87198233162923},
 	Point{-77.15269088745116, 38.87153962460514},
-}
+}}
 
-func comparePointTile(t *testing.T, lon, lat float64, x, y, z int) {
-	expected := Tile{x, y, z}
-	actual := CoverPoint(lon, lat, z)
+func comparePointTile(t *testing.T, p Point, expected Tile) {
+	actual := CoverPoint(p, expected.Z)
 	if actual != expected {
 		t.Error("Expected ", expected, ", got ", actual)
 	}
@@ -32,7 +31,8 @@ func comparePointTile(t *testing.T, lon, lat float64, x, y, z int) {
 
 func TestPointToTile(t *testing.T) {
 	// Knie's Kinderzoo in Rapperswil, Switzerland
-	comparePointTile(t, 8.8223, 47.2233, 8593, 5747, 14)
+	comparePointTile(t, Point{8.8223, 47.2233}, Tile{8593, 5747, 14})
+
 }
 
 func TestLongCoverLinestring(t *testing.T) {
@@ -59,7 +59,7 @@ func TestLongCoverLinestring(t *testing.T) {
 // Test a spiked Polygon with many intersections
 // https://github.com/mapbox/tile-cover/blob/master/test/fixtures/spiked.geojson
 func TestCoverSpikePolygon(t *testing.T) {
-	points := []Point{
+	points := Polygon{LineString{
 		Point{16.611328125, 8.667918002363134},
 		Point{13.447265624999998, 3.381823735328289},
 		Point{15.3369140625, -6.0968598188879355},
@@ -78,7 +78,7 @@ func TestCoverSpikePolygon(t *testing.T) {
 		Point{20.9619140625, 8.189742344383703},
 		Point{18.193359375, 14.3069694978258},
 		Point{16.611328125, 8.667918002363134},
-	}
+	}}
 	tiles := CoverPolygon(points, 6)
 	expectedTiles := FromTiles([]Tile{
 		Tile{35, 29, 6},
@@ -104,7 +104,8 @@ func TestCoverSpikePolygon(t *testing.T) {
 }
 
 func TestCoverLinestringLinearRing(t *testing.T) {
-	tiles, ring := CoverLinestring(Building, 20)
+	outerRing := Building[0]
+	tiles, ring := CoverLinestring(outerRing, 20)
 	expectedTiles := FromTiles([]Tile{
 		Tile{299564, 401224, 20},
 		Tile{299564, 401225, 20},
@@ -174,14 +175,14 @@ func TestCoverPolygonBuilding(t *testing.T) {
 }
 
 func TestCoverPolygon(t *testing.T) {
-	ring := []Point{
+	poly := Polygon{LineString{
 		Point{-79.9365234375, 32.77212032198862},
 		Point{-79.9306869506836, 32.77212032198862},
 		Point{-79.9306869506836, 32.776811185047144},
 		Point{-79.9365234375, 32.776811185047144},
 		Point{-79.9365234375, 32.77212032198862},
-	}
-	tiles := CoverPolygon(ring, 16)
+	}}
+	tiles := CoverPolygon(poly, 16)
 
 	expectedTiles := FromTiles([]Tile{
 		Tile{18216, 26447, 16},
