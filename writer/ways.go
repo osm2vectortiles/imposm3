@@ -74,6 +74,7 @@ func (ww *WayWriter) loop() {
 			continue
 		}
 		insertedAsRelation, err := ww.osmCache.InsertedWays.IsInserted(w.Id)
+		isPolygon := false
 		if err != nil {
 			log.Warn(err)
 			continue
@@ -108,13 +109,20 @@ func (ww *WayWriter) loop() {
 					}
 					continue
 				}
+				isPolygon = true
 				inserted = true
 			}
 		}
 
 		if inserted {
-			ww.expireor.ExpireLinestring(w.Nodes)
+			//TODO: Are polygons from way writer always polygon without holes? Otherwise they are a relation
+			if isPolygon {
+				ww.expireor.ExpirePolygon(w.Nodes)
+			} else {
+				ww.expireor.ExpireLinestring(w.Nodes)
+			}
 		}
+
 		if ww.diffCache != nil {
 			ww.diffCache.Coords.AddFromWay(w)
 		}
