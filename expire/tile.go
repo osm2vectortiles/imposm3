@@ -40,7 +40,7 @@ func (t ByYX) Less(i, j int) bool {
 // that are covered by the expired polygons, linestring and points
 func NewTileExpireor(maxZoom int) TileExpireor {
 	return TileExpireor{
-		tiles:   make(TileHash, 60000),
+		tiles:   make(TileHash),
 		maxZoom: maxZoom,
 	}
 }
@@ -59,7 +59,8 @@ func (te *TileExpireor) ExpireLinestring(nodes []element.Node) {
 		linestring = append(linestring, Point{node.Long, node.Lat})
 	}
 
-	te.tiles.CoverLinestring(linestring, te.maxZoom)
+	tiles, _ := CoverLinestring(linestring, te.maxZoom)
+	te.tiles.MergeTiles(tiles)
 }
 
 func (te *TileExpireor) ExpirePolygon(nodes []element.Node) {
@@ -69,11 +70,13 @@ func (te *TileExpireor) ExpirePolygon(nodes []element.Node) {
 		linearRing = append(linearRing, Point{node.Long, node.Lat})
 	}
 
-	te.tiles.CoverPolygon(linearRing, te.maxZoom)
+	tiles := CoverPolygon(linearRing, te.maxZoom)
+	te.tiles.MergeTiles(tiles)
 }
 
 func (te *TileExpireor) ExpirePoint(lon, lat float64) {
-	te.tiles.CoverPoint(lon, lat, te.maxZoom)
+	tile := CoverPoint(lon, lat, te.maxZoom)
+	te.tiles.AddTile(tile)
 }
 
 func (te *TileExpireor) WriteTiles(w io.Writer) {
