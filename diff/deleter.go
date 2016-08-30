@@ -37,6 +37,7 @@ func NewDeleter(db database.Deleter, osmCache *cache.OSMCache, diffCache *cache.
 		tmPoints:         tmPoints,
 		tmLineStrings:    tmLineStrings,
 		tmPolygons:       tmPolygons,
+		expireor:         expire.NullExpireor{},
 		singleIdSpace:    singleIdSpace,
 		deletedRelations: make(map[int64]struct{}),
 		deletedWays:      make(map[int64]struct{}),
@@ -125,18 +126,16 @@ func (d *Deleter) deleteRelation(id int64, deleteRefs bool, deleteMembers bool) 
 	if err := d.osmCache.InsertedWays.DeleteMembers(elem.Members); err != nil {
 		return err
 	}
-	if d.expireor != nil {
-		for _, m := range elem.Members {
-			if m.Way == nil {
-				continue
-			}
-			err := d.osmCache.Coords.FillWay(m.Way)
-			if err != nil {
-				continue
-			}
-			proj.NodesToMerc(m.Way.Nodes)
-			d.expireor.ExpireLinestring(m.Way.Nodes)
+	for _, m := range elem.Members {
+		if m.Way == nil {
+			continue
 		}
+		err := d.osmCache.Coords.FillWay(m.Way)
+		if err != nil {
+			continue
+		}
+		proj.NodesToMerc(m.Way.Nodes)
+		d.expireor.ExpireLinestring(m.Way.Nodes)
 	}
 	return nil
 }
@@ -174,7 +173,7 @@ func (d *Deleter) deleteWay(id int64, deleteRefs bool) error {
 			}
 		}
 	}
-	if deleted && d.expireor != nil {
+	if deleted {
 		err := d.osmCache.Coords.FillWay(elem)
 		if err != nil {
 			return err
@@ -204,7 +203,7 @@ func (d *Deleter) deleteNode(id int64) error {
 		deleted = true
 	}
 
-	if deleted && d.expireor != nil {
+	if deleted {
 		d.expireor.ExpirePoint(elem.Long, elem.Lat)
 	}
 	return nil

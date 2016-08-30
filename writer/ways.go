@@ -6,6 +6,7 @@ import (
 	"github.com/omniscale/imposm3/cache"
 	"github.com/omniscale/imposm3/database"
 	"github.com/omniscale/imposm3/element"
+	"github.com/omniscale/imposm3/expire"
 	geomp "github.com/omniscale/imposm3/geom"
 	"github.com/omniscale/imposm3/geom/geos"
 	"github.com/omniscale/imposm3/mapping"
@@ -44,6 +45,7 @@ func NewWayWriter(
 			wg:        &sync.WaitGroup{},
 			inserter:  inserter,
 			srid:      srid,
+			expireor:  expire.NullExpireor{},
 		},
 		singleIdSpace:  singleIdSpace,
 		lineMatcher:    lineMatcher,
@@ -110,7 +112,7 @@ func (ww *WayWriter) loop() {
 			}
 		}
 
-		if inserted && ww.expireor != nil {
+		if inserted {
 			ww.expireor.ExpireLinestring(w.Nodes)
 		}
 		if ww.diffCache != nil {

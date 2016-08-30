@@ -11,3 +11,9 @@ type Expireor interface {
 	// Expire a single point
 	ExpirePoint(lon, lat float64)
 }
+
+type NullExpireor struct{}
+
+func (_ NullExpireor) ExpireLinestring([]element.Node) {}
+func (_ NullExpireor) ExpirePolygon([]element.Node)    {}
+func (_ NullExpireor) ExpirePoint(lon, lat float64)    {}

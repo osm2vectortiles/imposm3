@@ -6,6 +6,7 @@ import (
 	"github.com/omniscale/imposm3/cache"
 	"github.com/omniscale/imposm3/database"
 	"github.com/omniscale/imposm3/element"
+	"github.com/omniscale/imposm3/expire"
 	geomp "github.com/omniscale/imposm3/geom"
 	"github.com/omniscale/imposm3/geom/geos"
 	"github.com/omniscale/imposm3/mapping"
@@ -33,6 +34,7 @@ func NewNodeWriter(
 			wg:       &sync.WaitGroup{},
 			inserter: inserter,
 			srid:     srid,
+			expireor: expire.NullExpireor{},
 		},
 		pointMatcher: matcher,
 		nodes:        nodes,
@@ -50,9 +52,7 @@ func (nw *NodeWriter) loop() {
 		nw.progress.AddNodes(1)
 		if matches := nw.pointMatcher.MatchNode(n); len(matches) > 0 {
 			nw.NodeToSrid(n)
-			if nw.expireor != nil {
-				nw.expireor.ExpirePoint(n.Long, n.Lat)
-			}
+			nw.expireor.ExpirePoint(n.Long, n.Lat)
 			point, err := geomp.Point(geos, *n)
 			if err != nil {
 				if errl, ok := err.(ErrorLevel); !ok || errl.Level() > 0 {

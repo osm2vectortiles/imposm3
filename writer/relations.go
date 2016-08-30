@@ -7,6 +7,7 @@ import (
 	"github.com/omniscale/imposm3/cache"
 	"github.com/omniscale/imposm3/database"
 	"github.com/omniscale/imposm3/element"
+	"github.com/omniscale/imposm3/expire"
 	geomp "github.com/omniscale/imposm3/geom"
 	geosp "github.com/omniscale/imposm3/geom/geos"
 	"github.com/omniscale/imposm3/mapping"
@@ -47,6 +48,7 @@ func NewRelationWriter(
 			wg:        &sync.WaitGroup{},
 			inserter:  inserter,
 			srid:      srid,
+			expireor:  expire.NullExpireor{},
 		},
 		singleIdSpace:         singleIdSpace,
 		polygonMatcher:        matcher,
@@ -121,7 +123,7 @@ NextRel:
 				}
 			}
 		}
-		if inserted && rw.expireor != nil {
+		if inserted {
 			for _, m := range allMembers {
 				if m.Way != nil {
 					rw.expireor.ExpireLinestring(m.Way.Nodes)
