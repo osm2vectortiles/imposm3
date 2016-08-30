@@ -14,9 +14,9 @@ type Point struct {
 
 // Calculate all tiles covered by the linear ring of the polygon
 // And the tiles enclosed by it
-func CoverPolygon(closedLinestring []Point, zoom int) TileHash {
+func (th *TileHash) CoverPolygon(closedLinestring []Point, zoom int) {
 	intersections := []TileFraction{}
-	tiles, ring := CoverLinestring(closedLinestring, zoom)
+	ring := th.CoverLinestring(closedLinestring, zoom)
 
 	j := 0
 	k := len(ring) - 1
@@ -41,15 +41,13 @@ func CoverPolygon(closedLinestring []Point, zoom int) TileHash {
 		// fill tiles between pairs of intersections
 		y := intersections[i].Y
 		for x := intersections[i].X + 1; x < intersections[i+1].X; x++ {
-			tiles.AddTile(NewTile(x, y, zoom))
+			th.AddTileFraction(x, y, zoom)
 		}
 	}
-	return tiles
 }
 
 // Calculate all tiles covered by linestring
-func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
-	tiles := make(TileHash)
+func (th *TileHash) CoverLinestring(points []Point, zoom int) []TileFraction {
 	ring := []TileFraction{}
 	prev := TileFraction{}
 
@@ -72,7 +70,7 @@ func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
 		//Check if we already found the tile for this way
 		sameAsPrevious := x == prev.X && y == prev.Y
 		if !sameAsPrevious {
-			tiles.AddTile(NewTile(x, y, zoom))
+			th.AddTileFraction(x, y, zoom)
 			ring = append(ring, TileFraction{x, y})
 			prev = TileFraction{x, y}
 		}
@@ -107,7 +105,7 @@ func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
 				y += sy
 			}
 
-			tiles.AddTile(NewTile(x, y, zoom))
+			th.AddTileFraction(x, y, zoom)
 			if y != prev.Y {
 				ring = append(ring, TileFraction{x, y})
 			}
@@ -120,13 +118,13 @@ func CoverLinestring(points []Point, zoom int) (TileHash, []TileFraction) {
 		ring = ring[:len(ring)-1]
 	}
 
-	return tiles, ring
+	return ring
 }
 
 // Calculate all tiles covered by the point
-func CoverPoint(lon, lat float64, zoom int) Tile {
+func (th *TileHash) CoverPoint(lon, lat float64, zoom int) {
 	tf := pointToTileFraction(lon, lat, zoom)
-	return NewTile(tf.X, tf.Y, zoom)
+	th.AddTileFraction(tf.X, tf.Y, zoom)
 }
 
 func pointToTileFraction(lon, lat float64, zoomLevel int) TileFraction {

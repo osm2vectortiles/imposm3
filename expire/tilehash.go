@@ -4,20 +4,17 @@ import "sort"
 
 type TileHash map[int]struct{}
 
-func (th TileHash) AddTile(t Tile) {
-	th[t.toID()] = struct{}{}
+func (th TileHash) AddTileFraction(x, y float64, z int) {
+	th[toID(int(x), int(y), z)] = struct{}{}
 }
-
-func (th TileHash) MergeTiles(other TileHash) {
-	for id, _ := range other {
-		th[id] = struct{}{}
-	}
+func (th TileHash) AddTile(x, y int, z int) {
+	th[toID(x, y, z)] = struct{}{}
 }
 
 func FromTiles(tiles []Tile) TileHash {
 	th := TileHash{}
 	for _, t := range tiles {
-		th.AddTile(t)
+		th.AddTile(t.X, t.Y, t.Z)
 	}
 	return th
 }
@@ -41,6 +38,10 @@ func fromID(id int) Tile {
 }
 
 func (t Tile) toID() int {
-	dim := 2 * (1 << uint(t.Z))
-	return ((dim*t.Y + t.X) * 32) + t.Z
+	return toID(t.X, t.Y, t.Z)
+}
+
+func toID(x, y int, z int) int {
+	dim := 2 * (1 << uint(z))
+	return ((dim*y + x) * 32) + z
 }
