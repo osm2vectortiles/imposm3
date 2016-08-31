@@ -3,14 +3,16 @@ package expire
 import (
 	"bytes"
 	"testing"
+
+	"github.com/omniscale/imposm3/geom/geojson"
 )
 
 func TestWriteTiles(t *testing.T) {
 	expected := "8627/5753/14\n"
-	point := Point{1065162.58495039, 5965498.83778885}
+	point := geojson.Point{1065162.58495039, 5965498.83778885}
 
 	expireor := NewTileExpireor(14)
-	expireor.ExpirePoint(point.lon, point.lat)
+	expireor.ExpirePoint(point.Long, point.Lat)
 
 	buf := new(bytes.Buffer)
 	expireor.WriteTiles(buf)

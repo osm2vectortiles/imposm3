@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/omniscale/imposm3/element"
+	"github.com/omniscale/imposm3/geom/geojson"
 )
 
 type Tile struct {
@@ -57,7 +58,7 @@ type TileExpireor struct {
 }
 
 func (te *TileExpireor) ExpireLinestring(nodes []element.Node) {
-	linestring := LineString{}
+	linestring := geojson.LineString{}
 	for _, n := range nodes {
 		linestring = append(linestring, reproject(n.Long, n.Lat))
 	}
@@ -69,19 +70,19 @@ func (te *TileExpireor) ExpireLinestring(nodes []element.Node) {
 }
 
 // Reproject from spherical mercator https://epsg.io/3857 to  http://epsg.io/4326
-func reproject(lon, lat float64) Point {
-	return Point{
-		lon: lon * 180 / 20037508.34,
-		lat: math.Atan(math.Exp(lat*math.Pi/20037508.34))*360/math.Pi - 90,
+func reproject(lon, lat float64) geojson.Point {
+	return geojson.Point{
+		Long: lon * 180 / 20037508.34,
+		Lat:  math.Atan(math.Exp(lat*math.Pi/20037508.34))*360/math.Pi - 90,
 	}
 }
 
 func (te *TileExpireor) ExpirePolygon(nodes []element.Node) {
-	outerRing := LineString{}
+	outerRing := geojson.LineString{}
 	for _, n := range nodes {
 		outerRing = append(outerRing, reproject(n.Long, n.Lat))
 	}
-	poly := Polygon{outerRing}
+	poly := geojson.Polygon{outerRing}
 	tiles := CoverPolygon(poly, te.maxZoom)
 
 	te.tileAccess.Lock()
