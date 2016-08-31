@@ -81,11 +81,8 @@ func dropTableIfExists(tx *sql.Tx, schema, table string) error {
 	if !exists {
 		return nil
 	}
-	sqlStmt := fmt.Sprintf("SELECT DropGeometryTable('%s', '%s');",
-		schema, table)
-	row := tx.QueryRow(sqlStmt)
-	var void interface{}
-	err = row.Scan(&void)
+	sqlStmt := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s CASCADE;", schema, table)
+	_, err = tx.Exec(sqlStmt)
 	if err != nil {
 		return &SQLError{sqlStmt, err}
 	}
