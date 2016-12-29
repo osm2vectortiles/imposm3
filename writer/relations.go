@@ -125,7 +125,7 @@ NextRel:
 		if inserted && rw.expireor != nil {
 			for _, m := range allMembers {
 				if m.Way != nil {
-					expire.ExpireNodes(rw.expireor, m.Way.Nodes)
+					expire.ExpireProjectedNodes(rw.expireor, m.Way.Nodes, rw.srid, true)
 				}
 			}
 		}
@@ -225,10 +225,10 @@ func handleRelationMembers(rw *RelationWriter, r *element.Relation, geos *geosp.
 		if m.Type == element.RELATION {
 			mrel, err := rw.osmCache.Relations.GetRelation(m.Id)
 			if err != nil {
-				if err == cache.NotFound {
+				if err != cache.NotFound {
 					log.Warn(err)
-					return false
 				}
+				return false
 			}
 			r.Members[i].Elem = &mrel.OSMElem
 		} else if m.Type == element.NODE {

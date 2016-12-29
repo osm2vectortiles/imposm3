@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/omniscale/imposm3/parser/pbf/osmpbf"
+	"github.com/omniscale/imposm3/parser/pbf/internal/osmpbf"
 )
 
 func BenchmarkHello(b *testing.B) {
 	b.StopTimer()
-	pbf, err := Open("./monaco-20150428.osm.pbf")
+	pbf, err := open("./monaco-20150428.osm.pbf")
 	if err != nil {
 		panic(err)
 	}

@@ -1,4 +1,15 @@
 {
+    "tags": {
+        "include": [
+            "shop",
+            "amenity",
+            "opening_hours"
+        ]
+    },
+    "areas": {
+        "area_tags": ["leisure"],
+        "linear_tags": ["highway"],
+    },
     "generalized_tables": {
         "waterareas_gen1": {
             "source": "waterareas",
@@ -65,7 +76,7 @@
                     "key": null
                 },
                 {
-                    "type": "pseudoarea",
+                    "type": "webmerc_area",
                     "name": "area",
                     "key": null
                 },
@@ -125,7 +136,8 @@
                     "pitch",
                     "stadium",
                     "common",
-                    "nature_reserve"
+                    "nature_reserve",
+                    "track"
                 ],
                 "tourism": [
                     "zoo"
@@ -199,6 +211,13 @@
                     "type": "mapping_value",
                     "name": "type",
                     "key": null
+                },
+                {
+                    "type": "hstore_tags",
+                    "name": "tags",
+                    "args": {
+                        "include": ["amenity", "shop", "opening_hours"]
+                    }
                 }
             ],
             "type": "polygon",
@@ -710,11 +729,6 @@
                 }
             ],
             "type": "linestring",
-            "filters": {
-                "exclude_tags": [
-                    ["area", "yes"]
-                ]
-            },
             "mappings": {
                 "railway": {
                     "mapping": {
@@ -733,10 +747,6 @@
                 },
                 "roads": {
                     "mapping": {
-                        "man_made": [
-                            "pier",
-                            "groyne"
-                        ],
                         "highway": [
                             "motorway",
                             "motorway_link",
@@ -761,6 +771,13 @@
                             "unclassified",
                             "residential",
                             "raceway"
+                        ],
+                        "man_made": [
+                            "pier",
+                            "groyne"
+                        ],
+                        "leisure": [
+                            "track"
                         ]
                     }
                 }
@@ -834,7 +851,7 @@
                     "key": null
                 },
                 {
-                    "type": "pseudoarea",
+                    "type": "webmerc_area",
                     "name": "area",
                     "key": null
                 }

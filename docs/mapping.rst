@@ -22,7 +22,7 @@ The most important part is the ``tables`` definition. Each table is a YAML objec
 ~~~~~~~~~~~
 
 ``mapping`` defines which OSM key/values an element needs to have to be imported into this table. ``mapping`` is a YAML object with the OSM `key` as the object key and a list of all OSM `values` to be matched as the object value.
-You can use the value ``__any__`` to match all values.
+You can use ``__any__`` to match all values (e.g. ``amenity: [__any__]``). To match elements regardless of their tags use ``__any__: [__any__]``. You need to use :ref:`load_all<tags>` in this case so that Imposm has access to all tags.
 
 To import all polygons with `tourism=zoo`, `natural=wood` or `natural=land` into the ``landusages`` table:
 
@@ -186,6 +186,30 @@ The following `enum` column will contain ``1`` for ``landuse=forest``, ``4`` for
 
 ``mapping_value`` will be used when ``key`` is not set or ``null``.
 
+``wayzorder``
+^^^^^^^^^^^^^
+
+Calculate the z-order of an OSM highway or railway. Returns a numeric value that represents the importance of a way where ``motorway`` is the most important (9), and ``path`` or ``track`` are least important (0). ``bridge`` and ``tunnel``  will modify the value by -10/+10. ``layer`` will be multiplied by ten and added to the value. E.g. ``highway=motorway``, ``bridge=yes`` and ``layer=2`` will return 39 (9+10+2*10).
+
+You can define your own ordering by adding a list of ``ranks``. The z-order value will be the index in the list (starting with 1). ``bridge``, ``tunnel``, and ``layer`` will modify the value by the number of items in the ``ranks`` list, instead of 10.
+Use ``default`` to set the default rank.
+
+::
+
+  columns:
+    - name: zorder
+      type: wayzorder
+      args:
+          default: 5
+          ranks:
+             - footway
+             - path
+             - residential
+             - primary
+             - motorway
+
+A ``motorway`` will have a ``zorder`` value of 5, a ``residential`` with ``bridge=yes`` will be 8 (3+5).
+
 
 Element types
 ~~~~~~~~~~~~~
@@ -210,7 +234,7 @@ The OSM `key` that was matched by this table mapping (`highway`, `building`, `na
 
 The OSM `value` that was matched by this table mapping (`primary`, `secondary`, `yes`, `forest`, etc.).
 
-..note:: The note of ``mapping_key`` above applies to ``mapping_values`` as well.
+.. note:: The note of ``mapping_key`` above applies to ``mapping_values`` as well.
 
 ``geometry``
 ^^^^^^^^^^^^
@@ -229,17 +253,22 @@ Like `geometry`, but the geometries will be validated and repaired when this tab
 
 Area of polygon geometries in square meters. This area is calculated in the webmercator projection, so it is only accurate at the equator and gets off the more the geometry moves to the poles. It's still good enough to sort features by area for rendering purposes.
 
+``area``
+^^^^^^^^
 
-``wayzorder``
-^^^^^^^^^^^^^
+Area of polygon geometries in the unit of the selected projection (m² or degrees²). Note that a `meter` in the webmercator projection is only accurate at the equator and gets off the more the geometry moves to the poles. It's still good enough to sort features by area for rendering purposes.
 
-Calculate the z-order of an OSM highway or railway. Returns a numeric value that represents the importance of a way where ``motorway`` is the most important (9), and ``path`` or ``track`` are least important (0). ``bridge`` and ``tunnel``  will modify the value by -10/+10. ``layer`` will be multiplied by ten and added to the value. E.g. ``highway=motorway``, ``bridge=yes`` and ``layer=2`` will return 39 (9+10+2*10).
+``webmerc_area``
+^^^^^^^^^^^^^^^^
 
+Area of polygon geometries in m². This field only works for the webmercator projection (EPSG:3857). The latitude of the geometry is considered when calculating the area. `This area is not precise`. Polygons lower than 70° latitude should have a ``webmerc_area`` within ±20% of the true size. However, long polygons like a runway can exhibit a much larger error.
 
 ``hstore_tags``
 ^^^^^^^^^^^^^^^
 
-Stores all tags in a HStore column. Requires the PostGIS HStore extension. This will only insert tags that are referenced in the ``mapping`` or ``columns`` of any table. See :ref:`tags` on how to import all availabel tags.
+Stores tags in an `hstore` column. Requires the `PostgreSQL hstore extension <http://www.postgresql.org/docs/9.6/static/hstore.html>`_. You can select tags with the ``include`` option, otherwise all tags will be inserted.
+
+In any case, ``hstore_tags`` will only insert tags that are referenced in the ``mapping`` or ``columns`` of any table. See :ref:`tags` on how to make additional tags available for import.
 
 
 .. TODO
@@ -304,9 +333,11 @@ The optional ``sql_filter`` can be used to limit the rows that will be generaliz
 Tags
 ----
 
-Imposm caches only tags that are required for a ``mapping`` or for any ``columns``. This keeps the cache small as it does not store any tags that are not required for the import. You can change this if you want to import all tags, e.g with the ``hstore_tags`` column type.
+Imposm caches only tags that are required for a ``mapping`` or for any ``columns``. This keeps the cache small as it does not store any tags that are not required for the import. You can change this if you want to import other tags, e.g with the ``hstore_tags`` column type.
 
-Add ``load_all`` to the ``tags`` object inside your mapping YAML file. You can still exclude tags with the ``exclude`` option. ``exclude`` supports a simple shell file name pattern matching.
+Add ``load_all`` to the ``tags`` object inside your mapping file. You can still exclude tags with the ``exclude`` option. ``exclude`` supports a simple shell file name pattern matching. ``exclude`` has only effect when ``load_all`` is enabled.
+
+Alternatively you can list all tags that you want to include with the ``include`` option. ``include`` does not support pattern matching and it has no effect when ``load_all`` is used.
 
 To load all tags except ``created_by``, ``source``, and ``tiger:county``, ``tiger:tlid``, ``tiger:upload_uuid``, etc:
 
@@ -316,3 +347,27 @@ To load all tags except ``created_by``, ``source``, and ``tiger:county``, ``tige
       load_all: true,
       exclude: [created_by, source, "tiger:*"]
 
+
+
+.. _Areas:
+
+Areas
+-----
+
+A closed way is way where the first and last nodes are identical. These closed ways are used to represent elements like building, forest or park polygons, but they can also represent linear (non-polygon) features, like a roundabout or a race track.
+
+OpenStreetMap uses the `area <http://wiki.openstreetmap.org/wiki/Key:area>`_ tag to specify if a closed way is an area (polygon) or a linear feature (linestring). For example ``highway=pedestrian, area=yes`` is a polygon feature.
+
+By default, Imposm inserts all closed ways into polygon tables as long as ``area`` is not ``no`` and linestring tables will contain all closed ways as long as the ``area`` is not ``yes``.
+However, the ``area`` tag is missing from most OSM elements, as buildings, landuse, etc. should be interpreted as ``area=yes`` by default and highways for example are ``area=no`` by default.
+
+You can configure these default interpretations with the ``areas`` option.
+
+.. code-block:: yaml
+
+    areas:
+      area_tags: [buildings, landuse, leisure, natural, aeroway]
+      linear_tags: [highway, barrier]
+
+
+With this ``areas`` configuration, ``highway`` elements are only inserted into polygon tables if there is an ``area=yes`` tag. ``aeroway`` elements are only inserted into linestring tables if there is an ``area=no`` tag.

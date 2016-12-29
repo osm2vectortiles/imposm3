@@ -2,6 +2,8 @@ package mapping
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,9 +36,11 @@ func init() {
 		"member_index":         {"member_index", "int32", nil, nil, RelationMemberIndex, true},
 		"geometry":             {"geometry", "geometry", Geometry, nil, nil, false},
 		"validated_geometry":   {"validated_geometry", "validated_geometry", Geometry, nil, nil, false},
-		"hstore_tags":          {"hstore_tags", "hstore_string", HstoreString, nil, nil, false},
-		"wayzorder":            {"wayzorder", "int32", WayZOrder, nil, nil, false},
-		"pseudoarea":           {"pseudoarea", "float32", PseudoArea, nil, nil, false},
+		"hstore_tags":          {"hstore_tags", "hstore_string", nil, MakeHStoreString, nil, false},
+		"wayzorder":            {"wayzorder", "int32", nil, MakeWayZOrder, nil, false},
+		"pseudoarea":           {"pseudoarea", "float32", nil, MakePseudoArea, nil, false},
+		"area":                 {"area", "float32", Area, nil, nil, false},
+		"webmerc_area":         {"webmerc_area", "float32", WebmercArea, nil, nil, false},
 		"zorder":               {"zorder", "int32", nil, MakeZOrder, nil, false},
 		"enumerate":            {"enumerate", "int32", nil, MakeEnumerate, nil, false},
 		"string_suffixreplace": {"string_suffixreplace", "string", nil, MakeSuffixReplace, nil, false},
@@ -216,7 +220,12 @@ func Geometry(val string, elem *element.OSMElem, geom *geom.Geometry, match Matc
 	return string(geom.Wkb)
 }
 
-func PseudoArea(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
+func MakePseudoArea(fieldName string, fieldType FieldType, field Field) (MakeValue, error) {
+	log.Print("warn: pseudoarea type is deprecated and will be removed. See area and webmercarea type.")
+	return Area, nil
+}
+
+func Area(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
 	area := geom.Geom.Area()
 	if area == 0.0 {
 		return nil
@@ -224,20 +233,95 @@ func PseudoArea(val string, elem *element.OSMElem, geom *geom.Geometry, match Ma
 	return float32(area)
 }
 
-var hstoreReplacer = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
-
-func HstoreString(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
-	tags := make([]string, 0, len(elem.Tags))
-	for k, v := range elem.Tags {
-		tags = append(tags, `"`+hstoreReplacer.Replace(k)+`"=>"`+hstoreReplacer.Replace(v)+`"`)
+func WebmercArea(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
+	area := geom.Geom.Area()
+	if area == 0.0 {
+		return nil
 	}
-	return strings.Join(tags, ", ")
+
+	bounds := geom.Geom.Bounds()
+	midY := bounds.MinY + (bounds.MaxY-bounds.MinY)/2
+
+	pole := 6378137 * math.Pi // 20037508.342789244
+	midLat := 2*math.Atan(math.Exp((midY/pole)*math.Pi)) - math.Pi/2
+
+	area = area * math.Pow(math.Cos(midLat), 2)
+
+	return float32(area)
 }
 
-var wayRanks map[string]int
+var hstoreReplacer = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+
+func MakeHStoreString(fieldName string, fieldType FieldType, field Field) (MakeValue, error) {
+	var includeAll bool
+	var err error
+	var include map[string]int
+	if _, ok := field.Args["include"]; !ok {
+		includeAll = true
+	} else {
+		include, err = decodeEnumArg(field, "include")
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	hstoreString := func(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
+		tags := make([]string, 0, len(elem.Tags))
+		for k, v := range elem.Tags {
+			if includeAll || include[k] != 0 {
+				tags = append(tags, `"`+hstoreReplacer.Replace(k)+`"=>"`+hstoreReplacer.Replace(v)+`"`)
+			}
+		}
+		return strings.Join(tags, ", ")
+	}
+	return hstoreString, nil
+}
+
+func MakeWayZOrder(fieldName string, fieldType FieldType, field Field) (MakeValue, error) {
+	if _, ok := field.Args["ranks"]; !ok {
+		return DefaultWayZOrder, nil
+	}
+	ranks, err := decodeEnumArg(field, "ranks")
+	if err != nil {
+		return nil, err
+	}
+	levelOffset := len(ranks)
+
+	defaultRank := 0
+	if val, ok := field.Args["default"].(float64); ok {
+		defaultRank = int(val)
+	}
+
+	wayZOrder := func(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
+		var z int
+		layer, _ := strconv.ParseInt(elem.Tags["layer"], 10, 64)
+		z += int(layer) * levelOffset
+
+		rank, ok := ranks[match.Value]
+		if !ok {
+			z += defaultRank
+		}
+
+		z += rank
+
+		tunnel := elem.Tags["tunnel"]
+		if tunnel == "true" || tunnel == "yes" || tunnel == "1" {
+			z -= levelOffset
+		}
+		bridge := elem.Tags["bridge"]
+		if bridge == "true" || bridge == "yes" || bridge == "1" {
+			z += levelOffset
+		}
+
+		return z
+	}
+	return wayZOrder, nil
+}
+
+var defaultRanks map[string]int
 
 func init() {
-	wayRanks = map[string]int{
+	defaultRanks = map[string]int{
 		"minor":          3,
 		"road":           3,
 		"unclassified":   3,
@@ -255,19 +339,19 @@ func init() {
 	}
 }
 
-func WayZOrder(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
-	var z int32
+func DefaultWayZOrder(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
+	var z int
 	layer, _ := strconv.ParseInt(elem.Tags["layer"], 10, 64)
-	z += int32(layer) * 10
+	z += int(layer) * 10
 
-	rank := wayRanks[match.Value]
+	rank := defaultRanks[match.Value]
 
 	if rank == 0 {
 		if _, ok := elem.Tags["railway"]; ok {
 			rank = 7
 		}
 	}
-	z += int32(rank)
+	z += rank
 
 	tunnel := elem.Tags["tunnel"]
 	if tunnel == "true" || tunnel == "yes" || tunnel == "1" {
@@ -329,24 +413,9 @@ func MakeZOrder(fieldName string, fieldType FieldType, field Field) (MakeValue, 
 }
 
 func MakeEnumerate(fieldName string, fieldType FieldType, field Field) (MakeValue, error) {
-	_valuesList, ok := field.Args["values"]
-	if !ok {
-		return nil, errors.New("missing values in args for enumerate")
-	}
-
-	valuesList, ok := _valuesList.([]interface{})
-	if !ok {
-		return nil, errors.New("values in args for enumerate not a list")
-	}
-
-	values := make(map[string]int)
-	for i, value := range valuesList {
-		valueName, ok := value.(string)
-		if !ok {
-			return nil, errors.New("value in values not a string")
-		}
-
-		values[valueName] = i + 1
+	values, err := decodeEnumArg(field, "values")
+	if err != nil {
+		return nil, err
 	}
 	enumerate := func(val string, elem *element.OSMElem, geom *geom.Geometry, match Match) interface{} {
 		if field.Key != "" {
@@ -362,6 +431,29 @@ func MakeEnumerate(fieldName string, fieldType FieldType, field Field) (MakeValu
 	}
 
 	return enumerate, nil
+}
+
+func decodeEnumArg(field Field, key string) (map[string]int, error) {
+	_valuesList, ok := field.Args[key]
+	if !ok {
+		return nil, fmt.Errorf("missing '%v' in args for %s", key, field.Type)
+	}
+
+	valuesList, ok := _valuesList.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("'%v' in args for %s not a list", key, field.Type)
+	}
+
+	values := make(map[string]int)
+	for i, value := range valuesList {
+		valueName, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("value in '%v' not a string", key)
+		}
+
+		values[valueName] = i + 1
+	}
+	return values, nil
 }
 
 func MakeSuffixReplace(fieldName string, fieldType FieldType, field Field) (MakeValue, error) {
